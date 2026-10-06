@@ -1,7 +1,6 @@
-require("dotenv").config();
-
 const express = require("express");
 const cors = require("cors");
+const config = require("./config/env");
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const repairRoutes = require("./routes/repairRoutes");
@@ -24,7 +23,7 @@ app.use("/api/repair", repairRoutes);
 async function startServer() {
   await connectDB();
 
-  const port = Number(process.env.PORT) || 5000;
+  const port = config.port;
 
   return app.listen(port, () => {
     console.log(`Server listening on port ${port}.`);

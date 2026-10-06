@@ -1,14 +1,13 @@
 const jwt = require("jsonwebtoken");
 const User = require("../model/User");
+const config = require("../config/env");
 
 function createToken(userId) {
-  const secret = process.env.JWT_SECRET_KEY;
-
-  if (!secret) {
-    throw new Error("JWT_SECRET is not configured.");
+  if (!config.jwtSecretKey) {
+    throw new Error("JWT_SECRET_KEY is not configured.");
   }
 
-  return jwt.sign({}, secret, {
+  return jwt.sign({}, config.jwtSecretKey, {
     subject: userId.toString(),
     expiresIn: "30d",
   });

@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../model/User");
+const config = require("../config/env");
 
 async function authMiddleware(req, res, next) {
   const authorization = req.headers.authorization;
@@ -12,10 +13,10 @@ async function authMiddleware(req, res, next) {
     });
   }
 
-  const secret = process.env.JWT_SECRET;
+  const secret = config.jwtSecretKey;
 
   if (!secret) {
-    console.error("JWT_SECRET is not configured.");
+    console.error("JWT_SECRET_KEY is not configured.");
     return res.status(500).json({
       success: false,
       message: "Authentication is not configured.",
