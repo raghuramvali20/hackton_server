@@ -5,13 +5,52 @@ const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY
 });
 
+function extractJsonObject(text) {
+  const source = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  const start = source.indexOf("{");
+
+  if (start === -1) {
+    throw new Error("Gemini response did not contain a JSON object.");
+  }
+
+  let depth = 0;
+  let insideString = false;
+  let escaped = false;
+
+  for (let index = start; index < source.length; index += 1) {
+    const character = source[index];
+
+    if (insideString) {
+      if (escaped) {
+        escaped = false;
+      } else if (character === "\\") {
+        escaped = true;
+      } else if (character === '"') {
+        insideString = false;
+      }
+      continue;
+    }
+
+    if (character === '"') {
+      insideString = true;
+    } else if (character === "{") {
+      depth += 1;
+    } else if (character === "}") {
+      depth -= 1;
+
+      if (depth === 0) {
+        return JSON.parse(source.slice(start, index + 1));
+      }
+    }
+  }
+
+  throw new Error("Gemini response contained an incomplete JSON object.");
+}
+
 async function generateContextualFixes(intermediateCode) {
   if (typeof intermediateCode !== "string") {
     throw new TypeError("intermediateCode must be a string.");
   }
-
-  let finalRepairedCode = intermediateCode;
-  const aiFixesLog = [];
 
   try {
     const prompt = `
@@ -41,37 +80,31 @@ async function generateContextualFixes(intermediateCode) {
     });
 
     if (response && response.text) {
-      const parsed = JSON.parse(response.text);
+      const parsed = extractJsonObject(response.text);
 
-      if (
-        typeof parsed.repairedHtml === "string" &&
-        parsed.repairedHtml.trim().length > 0
-      ) {
-        finalRepairedCode = parsed.repairedHtml;
+      if (typeof parsed.repairedHtml !== "string") {
+        throw new Error("Gemini JSON response is missing a string repairedHtml field.");
       }
 
-      if (Array.isArray(parsed.aiFixes)) {
-        parsed.aiFixes.forEach((fix) => {
-          if (fix && fix.desc) {
-            aiFixesLog.push(
-              `${fix.rule || "WCAG 1.1.1"}: ${fix.desc}`
-            );
-          }
-        });
+      if (!Array.isArray(parsed.aiFixes)) {
+        throw new Error("Gemini JSON response is missing an aiFixes array.");
       }
+
+      const aiFixesLog = parsed.aiFixes
+        .filter((fix) => fix && typeof fix.desc === "string" && fix.desc.trim())
+        .map((fix) => `${fix.rule || "WCAG 1.1.1"}: ${fix.desc.trim()}`);
+
+      return {
+        finalRepairedCode: parsed.repairedHtml,
+        aiFixesLog
+      };
     }
+
+    throw new Error("Gemini returned an empty response.");
   } catch (error) {
     console.error("Gemini AI Repair Error:", error.message);
-
-    aiFixesLog.push(
-      "AI repair skipped because the Gemini response could not be used."
-    );
+    throw new Error(`Gemini AI repair failed: ${error.message}`, { cause: error });
   }
-
-  return {
-    finalRepairedCode,
-    aiFixesLog
-  };
 }
 
 module.exports = {
