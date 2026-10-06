@@ -1,4 +1,4 @@
-const ScanReport = require("../models/ScanReport");
+const ScanReport = require("../model/ScanReport");
 const astParserService = require("../services/astParserService");
 const aiRepairService = require("../services/aiRepairService");
 const formalVerificationService = require("../services/formalVerificationService");

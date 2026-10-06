@@ -2,7 +2,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../model/User");
 
 function createToken(userId) {
-  const secret = process.env.JWT_SECRET;
+  const secret = process.env.JWT_SECRET_KEY;
 
   if (!secret) {
     throw new Error("JWT_SECRET is not configured.");
@@ -10,7 +10,7 @@ function createToken(userId) {
 
   return jwt.sign({}, secret, {
     subject: userId.toString(),
-    expiresIn: "7d",
+    expiresIn: "30d",
   });
 }
 
