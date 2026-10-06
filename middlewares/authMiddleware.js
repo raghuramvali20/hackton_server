@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const User = require("../models/User");
+const User = require("../model/User");
 
 async function authMiddleware(req, res, next) {
   const authorization = req.headers.authorization;
@@ -12,7 +12,7 @@ async function authMiddleware(req, res, next) {
     });
   }
 
-  const secret = process.env.JWT_SECRET;
+  const secret = process.env.JWT_SECRET_KEY;
 
   if (!secret) {
     console.error("JWT_SECRET is not configured.");
