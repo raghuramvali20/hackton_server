@@ -2,7 +2,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
 function createToken(userId) {
-  const secret = process.env.JWT_SECRET;
+  const secret = process.env.JWT_SECRET_KEY;
 
   if (!secret) {
     throw new Error("JWT_SECRET is not configured.");
