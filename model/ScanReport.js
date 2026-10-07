@@ -40,6 +40,10 @@ const scanReportSchema = new mongoose.Schema({
     type: [String],
     default: [],
   },
+  appliedRepairs: {
+    type: [mongoose.Schema.Types.Mixed],
+    default: [],
+  },
   findings: {
     type: [mongoose.Schema.Types.Mixed],
     default: [],
@@ -49,6 +53,10 @@ const scanReportSchema = new mongoose.Schema({
     default: [],
   },
   aiChanges: {
+    type: [mongoose.Schema.Types.Mixed],
+    default: [],
+  },
+  skippedFindings: {
     type: [mongoose.Schema.Types.Mixed],
     default: [],
   },

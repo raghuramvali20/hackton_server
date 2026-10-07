@@ -259,6 +259,23 @@ test("Gemini returns a validated AI-assisted code change for a supported finding
   assert.equal(result.aiFixesLog.length, 1);
 });
 
+test("Gemini image-alt proposals are bound to the scanner finding and require text", () => {
+  const finding = scanHtml('<img src="/chart.png">').findings[0];
+  const parsed = parseRepairResponse(JSON.stringify({
+    repairs: [{
+      findingIndex: 0,
+      ruleId: "wcag-image-alt",
+      attribute: "alt",
+      value: "Bar chart of quarterly revenue",
+    }],
+    suggestions: [],
+  }), [finding]);
+
+  assert.equal(parsed.repairs[0].findingId, finding.findingId);
+  assert.equal(parsed.repairs[0].attribute, "alt");
+  assert.equal(parsed.repairs[0].value, "Bar chart of quarterly revenue");
+});
+
 test("Gemini repairs preserve button behavior and support unwrapped HTML fragments", async () => {
   const input = "<form><button> </button></form>";
   const findings = scanHtml(input).findings;
@@ -355,6 +372,8 @@ test("frontend normalizer preserves new reports and marks old certificates unver
   assert.equal(current.id, "new-report");
   assert.equal(current.verification.verificationStatus, "NEEDS_REVIEW");
   assert.equal(current.findings.length, 1);
+  assert.deepEqual(current.appliedRepairs, []);
+  assert.deepEqual(current.skippedFindings, []);
   assert.equal(legacy.verification.verificationStatus, "LEGACY_UNVERIFIED");
   assert.equal(legacy.verification.reportHash, null);
 });

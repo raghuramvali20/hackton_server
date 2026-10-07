@@ -26,7 +26,8 @@ function verifySupportedChecks(
   finalCode,
   totalFixes,
   automaticFixes = [],
-  aiChanges = []
+  aiChanges = [],
+  skippedFindings = []
 ) {
   if (typeof originalCode !== "string" || typeof finalCode !== "string") {
     throw new TypeError("originalCode and finalCode must be strings.");
@@ -119,6 +120,7 @@ function verifySupportedChecks(
     totalAutomaticFixes: totalFixes,
     aiChanges,
     humanReviewRequired: aiChanges.length > 0,
+    skippedFindings,
     findingsBefore: before.findings,
     findingsAfter,
     findings,
@@ -127,6 +129,7 @@ function verifySupportedChecks(
       fixed: findings.filter((finding) => finding.status === "FIXED").length,
       remaining: findingsAfter.length,
       needsReview: needsReviewCount,
+      skipped: skippedFindings.length,
     },
     checksPerformed,
     reportHash,

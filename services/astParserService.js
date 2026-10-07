@@ -153,13 +153,15 @@ function getElementPath($, element) {
 }
 
 function createFinding($, element, ruleId, criterion, severity, message) {
+  const elementPath = getElementPath($, element);
   return {
     ruleId,
     criterion,
     severity,
     message,
     element: describeElement($, element),
-    elementPath: getElementPath($, element),
+    elementPath,
+    findingId: `${ruleId}:${elementPath.join(".")}`,
     status: ["wcag-document-language", "wcag-image-alt"].includes(ruleId)
       ? "NEEDS_REVIEW"
       : "REMAINS",
