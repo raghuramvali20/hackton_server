@@ -177,6 +177,10 @@ test("before and after scores are pass rates across applicable supported checks"
   );
 
   assert.equal(result.verification.scoreMethod, "supported-check-pass-rate-v1");
+  assert.deepEqual(result.verification.scoreBreakdown, {
+    before: { passed: 3, applicable: 4 },
+    after: { passed: 4, applicable: 4 },
+  });
   assert.equal(result.scoreBefore, 75);
   assert.equal(result.scoreAfter, 100);
 });

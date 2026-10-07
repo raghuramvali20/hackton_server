@@ -7,6 +7,15 @@ const scanReportSchema = new mongoose.Schema({
     required: true,
     index: true,
   },
+  sourceType: {
+    type: String,
+    enum: ["html", "url"],
+    default: "html",
+  },
+  sourceUrl: {
+    type: String,
+    default: "",
+  },
   originalCode: {
     type: String,
     required: true,
@@ -45,7 +54,7 @@ const scanReportSchema = new mongoose.Schema({
   },
   aiRepairStatus: {
     type: String,
-    enum: ["NOT_NEEDED", "COMPLETED", "UNAVAILABLE"],
+    enum: ["NOT_NEEDED", "COMPLETED", "UNAVAILABLE", "SKIPPED_LIMIT"],
     default: "NOT_NEEDED",
   },
   aiRepairMessage: {

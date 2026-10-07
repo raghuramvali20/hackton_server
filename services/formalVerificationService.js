@@ -9,12 +9,16 @@ function calculateSupportedChecksScore(checks) {
   const applicableChecks = checks.filter(
     (check) => check.status !== "NOT_APPLICABLE"
   );
-  if (applicableChecks.length === 0) return 0;
-
   const passedChecks = applicableChecks.filter(
     (check) => check.status === "PASSED"
   ).length;
-  return Math.round((passedChecks / applicableChecks.length) * 100);
+  return {
+    score: applicableChecks.length === 0
+      ? 0
+      : Math.round((passedChecks / applicableChecks.length) * 100),
+    passed: passedChecks,
+    applicable: applicableChecks.length,
+  };
 }
 
 function verifySupportedChecks(
@@ -83,8 +87,10 @@ function verifySupportedChecks(
       check.status,
   }));
 
-  const scoreBefore = calculateSupportedChecksScore(before.checks);
-  const scoreAfter = calculateSupportedChecksScore(after.checks);
+  const scoreBeforeResult = calculateSupportedChecksScore(before.checks);
+  const scoreAfterResult = calculateSupportedChecksScore(after.checks);
+  const scoreBefore = scoreBeforeResult.score;
+  const scoreAfter = scoreAfterResult.score;
   const reportHash = createHash("sha256")
     .update(JSON.stringify({
       originalCode,
@@ -97,6 +103,16 @@ function verifySupportedChecks(
   const verification = {
     schemaVersion: 1,
     scoreMethod: "supported-check-pass-rate-v1",
+    scoreBreakdown: {
+      before: {
+        passed: scoreBeforeResult.passed,
+        applicable: scoreBeforeResult.applicable,
+      },
+      after: {
+        passed: scoreAfterResult.passed,
+        applicable: scoreAfterResult.applicable,
+      },
+    },
     verificationStatus,
     scope: "Limited static HTML checks only; not a complete WCAG conformance result.",
     issuedAt: new Date().toISOString(),
