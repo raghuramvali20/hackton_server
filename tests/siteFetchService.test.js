@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   SiteFetchError,
+  createPinnedLookup,
   fetchSiteHtml,
   isPublicAddress,
   parseSiteUrl,
@@ -53,6 +54,34 @@ test("blocks private, reserved, and non-global addresses", () => {
 
   assert.equal(isPublicAddress("8.8.8.8"), true);
   assert.equal(isPublicAddress("2606:4700:4700::1111"), true);
+});
+
+test("pinned DNS lookup supports Node's single-address and all-address callback forms", async () => {
+  const lookup = createPinnedLookup({ address: "8.8.8.8" });
+
+  const singleAddress = await new Promise((resolve, reject) => {
+    lookup("pages.example", {}, (error, address, family) => {
+      if (error) reject(error);
+      else resolve({ address, family });
+    });
+  });
+  assert.deepEqual(singleAddress, { address: "8.8.8.8", family: 4 });
+
+  const allAddresses = await new Promise((resolve, reject) => {
+    lookup("pages.example", { all: true }, (error, addresses) => {
+      if (error) reject(error);
+      else resolve(addresses);
+    });
+  });
+  assert.deepEqual(allAddresses, [{ address: "8.8.8.8", family: 4 }]);
+
+  const legacyCallback = await new Promise((resolve, reject) => {
+    lookup("pages.example", (error, address, family) => {
+      if (error) reject(error);
+      else resolve({ address, family });
+    });
+  });
+  assert.deepEqual(legacyCallback, { address: "8.8.8.8", family: 4 });
 });
 
 test("rejects local-network resolution before making an HTTP request", async () => {

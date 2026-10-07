@@ -120,7 +120,6 @@ async function resolvePublicAddress(hostname) {
 
 function requestHtml(url, resolvedAddress) {
   const transport = url.protocol === "https:" ? https : http;
-  const family = net.isIP(resolvedAddress.address);
   const hostname = getHostname(url);
 
   return new Promise((resolve, reject) => {
@@ -135,9 +134,7 @@ function requestHtml(url, resolvedAddress) {
         "Accept-Encoding": "identity",
         "User-Agent": "AccessPilot-A11y-Scanner/1.0",
       },
-      lookup: (_hostname, _options, callback) => {
-        callback(null, resolvedAddress.address, family);
-      },
+      lookup: createPinnedLookup(resolvedAddress),
       servername: net.isIP(hostname) ? undefined : hostname,
       timeout: REQUEST_TIMEOUT_MS,
     }, (response) => {
@@ -216,6 +213,27 @@ function requestHtml(url, resolvedAddress) {
   });
 }
 
+function createPinnedLookup(resolvedAddress) {
+  const family = net.isIP(resolvedAddress.address);
+
+  return (_hostname, options, callback) => {
+    if (typeof options === "function") {
+      callback = options;
+      options = {};
+    }
+
+    if (options?.all) {
+      callback(null, [{
+        address: resolvedAddress.address,
+        family,
+      }]);
+      return;
+    }
+
+    callback(null, resolvedAddress.address, family);
+  };
+}
+
 async function fetchSiteHtml(input) {
   let url = parseSiteUrl(input);
 
@@ -251,6 +269,7 @@ async function fetchSiteHtml(input) {
 
 module.exports = {
   SiteFetchError,
+  createPinnedLookup,
   fetchSiteHtml,
   getHostname,
   isPublicAddress,
