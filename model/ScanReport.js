@@ -31,9 +31,34 @@ const scanReportSchema = new mongoose.Schema({
     type: [String],
     default: [],
   },
+  findings: {
+    type: [mongoose.Schema.Types.Mixed],
+    default: [],
+  },
+  aiSuggestions: {
+    type: [mongoose.Schema.Types.Mixed],
+    default: [],
+  },
+  aiChanges: {
+    type: [mongoose.Schema.Types.Mixed],
+    default: [],
+  },
+  aiRepairStatus: {
+    type: String,
+    enum: ["NOT_NEEDED", "COMPLETED", "UNAVAILABLE"],
+    default: "NOT_NEEDED",
+  },
+  aiRepairMessage: {
+    type: String,
+    default: "",
+  },
+  verification: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
   formalCertificate: {
     type: mongoose.Schema.Types.Mixed,
-    required: true,
+    default: null,
   },
   createdAt: {
     type: Date,

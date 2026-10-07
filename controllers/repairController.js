@@ -17,16 +17,39 @@ async function processCodeRepair(req, res) {
     const { intermediateCode, staticFixesLog } =
       await astParserService.fixDeterministicRules(rawCode);
 
-    const { finalRepairedCode, aiFixesLog } =
-      await aiRepairService.generateContextualFixes(intermediateCode);
+    let finalRepairedCode = intermediateCode;
+    let aiSuggestions = [];
+    let aiChanges = [];
+    let aiRepairStatus = "NOT_NEEDED";
+    let aiRepairMessage = "";
 
-    const appliedFixes = [...staticFixesLog, ...aiFixesLog];
+    const findingsBeforeAi = astParserService.scanHtml(intermediateCode).findings;
+    if (findingsBeforeAi.length > 0) {
+      aiRepairStatus = "COMPLETED";
+      try {
+        const aiResult = await aiRepairService.generateContextualFixes(
+          intermediateCode,
+          findingsBeforeAi
+        );
+        finalRepairedCode = aiResult.finalRepairedCode;
+        aiSuggestions = aiResult.aiSuggestions || [];
+        aiChanges = aiResult.aiChanges || [];
+      } catch (error) {
+        console.error("Gemini accessibility suggestions unavailable:", error);
+        aiRepairStatus = "UNAVAILABLE";
+        aiRepairMessage = "AI repair was unavailable; only deterministic repairs were applied.";
+      }
+    }
 
-    const { certificate, scoreBefore, scoreAfter } =
-      formalVerificationService.verifyAndIssueCertificate(
+    const appliedFixes = staticFixesLog.map((fix) => fix.description);
+
+    const { verification, scoreBefore, scoreAfter } =
+      formalVerificationService.verifySupportedChecks(
         rawCode,
         finalRepairedCode,
-        appliedFixes.length
+        staticFixesLog.length,
+        staticFixesLog,
+        aiChanges
       );
 
     const report = await ScanReport.create({
@@ -36,7 +59,12 @@ async function processCodeRepair(req, res) {
       scoreBefore,
       scoreAfter,
       appliedFixes,
-      formalCertificate: certificate,
+      aiChanges,
+      findings: verification.findings,
+      aiSuggestions,
+      aiRepairStatus,
+      aiRepairMessage,
+      verification,
     });
 
     return res.status(201).json({
@@ -48,7 +76,13 @@ async function processCodeRepair(req, res) {
         scoreBefore: report.scoreBefore,
         scoreAfter: report.scoreAfter,
         appliedFixes: report.appliedFixes,
-        formalCertificate: report.formalCertificate,
+        aiChanges: report.aiChanges,
+        findings: report.findings,
+        aiSuggestions: report.aiSuggestions,
+        aiRepairStatus: report.aiRepairStatus,
+        aiRepairMessage: report.aiRepairMessage,
+        verification: report.verification,
+        formalCertificate: report.formalCertificate || null,
         createdAt: report.createdAt,
       },
     });
