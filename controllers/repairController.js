@@ -2,6 +2,8 @@ const ScanReport = require("../model/ScanReport");
 const astParserService = require("../services/astParserService");
 const aiRepairService = require("../services/aiRepairService");
 const formalVerificationService = require("../services/formalVerificationService");
+const reactSourceService = require("../services/reactSourceService");
+const { createHash } = require("node:crypto");
 const {
   SiteFetchError,
   fetchSiteHtml,
@@ -37,6 +39,9 @@ async function readRepairSource(body) {
 
 async function previewCodeRepair(req, res) {
   try {
+    if (req.body?.sourceType === "react-jsx") {
+      return previewReactSource(req, res);
+    }
     const source = await readRepairSource(req.body);
     if (!source.rawCode.trim()) {
       return res.status(422).json({
@@ -111,8 +116,174 @@ async function previewCodeRepair(req, res) {
   }
 }
 
+function previewReactSource(req, res) {
+  try {
+    const { sourceCode, sourceFileName } = req.body || {};
+    const scan = reactSourceService.scanReactSource(sourceCode, sourceFileName);
+    return res.status(200).json({
+      success: true,
+      preview: {
+        sourceType: "react-jsx",
+        sourceUrl: "",
+        sourceFileName,
+        rawCode: sourceCode,
+        scope: scan.scope,
+        findings: scan.findings,
+        checksPerformed: scan.checks,
+        safeRepairs: [],
+        aiRepairs: [],
+        aiRepairStatus: "NOT_NEEDED",
+        aiRepairMessage: "",
+      },
+    });
+  } catch (error) {
+    if (error.statusCode === 422 || error instanceof TypeError || error instanceof RangeError) {
+      return res.status(error.statusCode || 400).json({
+        success: false,
+        code: error.code || "INVALID_REACT_SOURCE",
+        message: error.message,
+      });
+    }
+    console.error("React source preview failed:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to scan this React source.",
+    });
+  }
+}
+
+async function applyApprovedReactRepairs(req, res) {
+  try {
+    const {
+      rawCode,
+      sourceFileName,
+      repairs,
+      skippedFindingIds,
+    } = req.body || {};
+    const before = reactSourceService.scanReactSource(rawCode, sourceFileName);
+    const result = reactSourceService.applyApprovedReactRepairs(
+      rawCode,
+      repairs,
+      sourceFileName
+    );
+    const remainingIds = new Set(result.findings.map((finding) => finding.findingId));
+    const skippedSet = new Set(Array.isArray(skippedFindingIds) ? skippedFindingIds : []);
+    const skippedFindings = before.findings.filter(
+      (finding) => skippedSet.has(finding.findingId) && remainingIds.has(finding.findingId)
+    );
+    const resolvedIds = new Set(result.resolvedFindingIds);
+    const combinedFindings = before.findings.map((finding) => {
+      if (resolvedIds.has(finding.findingId)) {
+        return { ...finding, status: "FIXED" };
+      }
+      return result.findings.find((afterFinding) =>
+        afterFinding.findingId === finding.findingId
+      ) || finding;
+    });
+    const beforeRemaining = before.findings.length;
+    const remainingCount = result.findings.length;
+    const needsReviewCount = result.findings.filter(
+      (finding) => finding.status === "NEEDS_REVIEW"
+    ).length;
+    const verificationStatus = needsReviewCount > 0
+      ? "NEEDS_REVIEW"
+      : remainingCount > 0
+        ? "ISSUES_REMAIN"
+        : "NO_PATTERN_DETECTED_IN_SUPPORTED_CHECKS";
+    const verification = {
+      schemaVersion: 2,
+      sourceType: "react-jsx",
+      verificationStatus,
+      scope: result.checks.length
+        ? "Static inspection of one JSX/TSX source file only. This is not a full WCAG assessment; no project code was executed or rendered."
+        : before.scope,
+      issueCounts: {
+        found: beforeRemaining,
+        fixed: result.resolvedFindingIds.length,
+        remaining: remainingCount,
+        needsReview: needsReviewCount,
+        skipped: skippedFindings.length,
+      },
+      findingsBefore: before.findings,
+      findingsAfter: result.findings,
+      findings: combinedFindings,
+      checksPerformed: result.checks,
+      skippedFindings,
+      appliedRepairs: result.appliedRepairs,
+      scoreMethod: null,
+      scoreBreakdown: null,
+      reportHash: createHash("sha256")
+        .update(JSON.stringify({ originalCode: rawCode, finalCode: result.repairedCode, checks: result.checks }))
+        .digest("hex"),
+      reportHashPurpose: "SHA-256 report-data identifier; not a proof of correctness or conformance.",
+    };
+
+    const report = await ScanReport.create({
+      userId: req.user._id,
+      sourceType: "react-jsx",
+      sourceFileName,
+      sourceUrl: "",
+      originalCode: rawCode,
+      repairedCode: result.repairedCode,
+      scoreBefore: null,
+      scoreAfter: null,
+      appliedFixes: result.appliedRepairs.map((repair) => repair.description),
+      appliedRepairs: result.appliedRepairs,
+      findings: combinedFindings,
+      skippedFindings,
+      aiSuggestions: [],
+      aiChanges: [],
+      aiRepairStatus: "NOT_NEEDED",
+      aiRepairMessage: "",
+      verification,
+    });
+
+    return res.status(201).json({
+      success: true,
+      report: {
+        id: report._id,
+        sourceType: report.sourceType,
+        sourceFileName: report.sourceFileName,
+        sourceUrl: "",
+        originalCode: report.originalCode,
+        repairedCode: report.repairedCode,
+        scoreBefore: null,
+        scoreAfter: null,
+        appliedFixes: report.appliedFixes,
+        appliedRepairs: report.appliedRepairs,
+        aiChanges: [],
+        skippedFindings: report.skippedFindings,
+        findings: report.findings,
+        aiSuggestions: [],
+        aiRepairStatus: report.aiRepairStatus,
+        aiRepairMessage: "",
+        verification: report.verification,
+        formalCertificate: null,
+        createdAt: report.createdAt,
+      },
+    });
+  } catch (error) {
+    if (error.statusCode === 422 || error instanceof TypeError || error instanceof RangeError ||
+        /React repair|repair does not match|intent|cannot be empty|duplicated/i.test(error.message)) {
+      return res.status(error.statusCode || 400).json({
+        success: false,
+        code: error.code || "INVALID_REACT_REPAIR",
+        message: error.message,
+      });
+    }
+    console.error("Applying approved React repairs failed:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to apply the approved React repairs.",
+    });
+  }
+}
+
 async function applyCodeRepairs(req, res) {
   try {
+    if (req.body?.sourceType === "react-jsx") {
+      return await applyApprovedReactRepairs(req, res);
+    }
     const {
       rawCode,
       repairs,

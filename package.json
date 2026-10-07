@@ -12,6 +12,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@babel/parser": "^7.29.9",
     "@google/genai": "^2.27.0",
     "bcryptjs": "^3.0.3",
     "cheerio": "^1.2.0",

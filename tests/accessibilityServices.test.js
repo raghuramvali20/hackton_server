@@ -368,6 +368,19 @@ test("frontend normalizer preserves new reports and marks old certificates unver
       proofHash: "sha256-wcag-not-a-real-hash",
     },
   });
+  const reactSource = normalizeReport({
+    _id: "react-source-report",
+    sourceType: "react-jsx",
+    sourceFileName: "Panel.tsx",
+    scoreBefore: null,
+    scoreAfter: null,
+    verification: {
+      schemaVersion: 2,
+      sourceType: "react-jsx",
+      verificationStatus: "NEEDS_REVIEW",
+      issueCounts: { found: 1, fixed: 0, remaining: 1, needsReview: 1 },
+    },
+  });
 
   assert.equal(current.id, "new-report");
   assert.equal(current.verification.verificationStatus, "NEEDS_REVIEW");
@@ -376,4 +389,7 @@ test("frontend normalizer preserves new reports and marks old certificates unver
   assert.deepEqual(current.skippedFindings, []);
   assert.equal(legacy.verification.verificationStatus, "LEGACY_UNVERIFIED");
   assert.equal(legacy.verification.reportHash, null);
+  assert.equal(reactSource.sourceType, "react-jsx");
+  assert.equal(reactSource.sourceFileName, "Panel.tsx");
+  assert.equal(reactSource.scoreAfter, null);
 });

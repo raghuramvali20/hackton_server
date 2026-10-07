@@ -9,8 +9,12 @@ const scanReportSchema = new mongoose.Schema({
   },
   sourceType: {
     type: String,
-    enum: ["html", "url"],
+    enum: ["html", "url", "react-jsx"],
     default: "html",
+  },
+  sourceFileName: {
+    type: String,
+    default: "",
   },
   sourceUrl: {
     type: String,
@@ -26,13 +30,19 @@ const scanReportSchema = new mongoose.Schema({
   },
   scoreBefore: {
     type: Number,
-    required: true,
+    default: null,
+    required() {
+      return this.sourceType !== "react-jsx";
+    },
     min: 0,
     max: 100,
   },
   scoreAfter: {
     type: Number,
-    required: true,
+    default: null,
+    required() {
+      return this.sourceType !== "react-jsx";
+    },
     min: 0,
     max: 100,
   },
